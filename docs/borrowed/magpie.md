@@ -24,10 +24,11 @@ releases rather than a line of code that could change tomorrow.
 
 - **Source:** `CLAUDE.md` (23 bytes, its entire contents) and `AGENTS.md`.
 - **The idea:** `CLAUDE.md` contains nothing but `@AGENTS.md` and
-  `@LESSONS.md` — two imports. `AGENTS.md` is the real entry point, and it
-  states no rules of its own: every section says only *when* to read something
-  ("Before changing a documented subsystem, read its design reference…"). The
-  heavy material lives in linked documents, read on demand.
+  `@LESSONS.md` — two imports. `AGENTS.md` is the real entry point, and it is
+  primarily a router: most sections say only *when* to read something
+  ("Before changing a documented subsystem, read its design reference…"). It
+  carries only the few cross-cutting rules that cannot live in one linked
+  document. The heavy material lives in linked documents, read on demand.
 - **Landed:** `template/CLAUDE.md`, `template/AGENTS.md`
 - **Status:** adopted
 
@@ -116,18 +117,6 @@ verification, and "not run" is a cheap, checkable thing to require.
   than exploded into dozens of build targets nobody maintains.
 - **Landed:** `template/Makefile`, `template/docs/subsystems/_template.md`
 - **Status:** adopted
-
-### The build file refuses to run in the wrong directory
-
-- **Source:** the top of the `Makefile` — an `ifeq` on the module line in
-  `go.mod` that calls `$(error …)`.
-- **The idea:** recipes name paths relative to the working folder, and `clean`
-  deletes them. `make -f path/to/Makefile` from elsewhere would therefore act
-  on the wrong tree. The guard makes that impossible rather than unlikely.
-- **Landed:** `template/Makefile`
-- **Status:** adapted — the guard is keyed to a per-stack marker file
-  (`go.mod`, `pyproject.toml`, `package.json`) chosen at init, so it works for
-  every stack the template supports rather than only Go.
 
 ### Non-obvious build and CI lines carry the reason they exist
 
@@ -229,20 +218,6 @@ verification, and "not run" is a cheap, checkable thing to require.
 - **Landed:** `template/LESSONS.md`
 - **Status:** adopted
 
-### An agent proposes; a human decides
-
-- **Source:** `docs/contributors.md`: "An agent only proposes. It writes the
-  evidence (PR numbers, dates, what was wrong) to the maintainer; the maintainer
-  decides."
-- **The idea:** the automation boundary is stated explicitly, and the agent's
-  output is *evidence* rather than a verdict. Applied to the lessons log: an
-  agent may propose a rule and write its evidence; a human decides whether it
-  belongs and decides every promotion into the standards.
-- **Landed:** `template/LESSONS.md`
-- **Status:** adapted — the community-PR policy that surrounds it was not
-  taken (see Rejected), but this rule was kept and moved into the lessons log,
-  where it governs the log's own maintenance.
-
 ### Line endings are enforced by the repository, not by each contributor
 
 - **Source:** `.gitattributes`. A single `* text=auto eol=lf`, with a comment
@@ -309,13 +284,46 @@ or the formatter. `verify` is the honest name for "everything a change must
 pass", and it gives CI one stable name to call regardless of what is underneath
 it. This is a deliberate divergence from the source, not an oversight.
 
-### The folder guard is keyed per stack
+### The build file refuses to run in the wrong directory
 
-- **Source:** the `Makefile` guard, which reads the module line from `go.mod`.
+- **Source:** the top of the `Makefile` — an `ifeq` on the module line in
+  `go.mod` that calls `$(error …)`.
+- **The idea:** recipes name paths relative to the working folder, and `clean`
+  deletes them. `make -f path/to/Makefile` from elsewhere would act on the
+  wrong tree, so the build file checks where it is before running anything.
 - **Landed:** `template/Makefile`, `scripts/stacks/*/guard`
-- **Status:** adapted — init writes the marker file for the chosen stack, so
-  the same guard works for Python and Node. The behaviour is unchanged; only
-  what it looks for differs.
+- **Status:** adapted — the file the guard *looks for* is chosen per stack
+  (`go.mod`, `pyproject.toml`, `package.json`) instead of hardcoding Go. It is
+  advisory, not proof of ownership: another project of the same stack passes it
+  too. That is enough for the failure it prevents, and claiming more would be
+  false.
+
+### An agent proposes; a human decides
+
+- **Source:** `docs/contributors.md`: "An agent only proposes. It writes the
+  evidence (PR numbers, dates, what was wrong) to the maintainer; the maintainer
+  decides."
+- **The idea:** the automation boundary is stated explicitly, and the agent's
+  output is *evidence* rather than a verdict. Applied to the lessons log: an
+  agent may propose a rule and write its evidence; a human decides whether it
+  belongs and decides every promotion into the standards.
+- **Landed:** `template/LESSONS.md`
+- **Status:** adapted — the community-PR policy that surrounds it was not
+  taken (see Rejected), but this rule was kept and moved into the lessons log,
+  where it governs the log's own maintenance.
+
+### Language-specific rule sections
+
+- **Source:** `docs/code-standards.md` `## Go` and `## GUI`.
+- **The idea:** a short section of rules that only make sense in that
+  language or framework — `any` over `interface{}`; every user-visible string
+  goes through the translation function; use the app's own dropdown rather than
+  a native `<select>`.
+- **Landed:** `scripts/stacks/<stack>/conventions.md`, written into
+  `docs/code-standards.md` at init, and skippable with `--no-conventions`.
+- **Status:** adapted — the structure was kept (a project-specific section at
+  the foot of the standards), but the content is generated per stack and
+  labelled a starting point to edit rather than a rule to inherit.
 
 ---
 
@@ -350,9 +358,9 @@ deciding whether it is good.
   written as plain behaviour; the body says how it was verified and which test
   fails without the change; concurrent agent sessions work in their own
   worktrees and never clean another session's.
-- **Landed:** nothing in `template/`. The commit-message convention was kept in
-  `template/docs/code-standards.md`, because it is also the place a reviewer
-  looks for the evidence the acceptance criteria require.
+- **Landed:** the commit-message convention only, in
+  `template/docs/code-standards.md`, because it is also where a reviewer looks
+  for the evidence the acceptance criteria require. Nothing else.
 - **Status:** rejected
 
 The user's own `git-workflow` skill owns branching, merging, releases and
@@ -363,22 +371,6 @@ project ever needs to work without that skill present.
 The worktree-isolation rule is the part most worth recovering, if concurrent
 agent sessions ever become normal here: it is the difference between two agents
 working in parallel and two agents corrupting each other's checkout.
-
-### Language-specific rule sections
-
-- **Source:** `docs/code-standards.md` `## Go` and `## GUI`.
-- **The idea:** a short section of rules that only make sense in that
-  language or framework — `any` over `interface{}`; every user-visible string
-  goes through the translation function; use the app's own dropdown rather than
-  a native `<select>`.
-- **Landed:** `scripts/stacks/<stack>/conventions.md`, written into
-  `docs/code-standards.md` at init.
-- **Status:** adapted
-
-The structure was kept — a project-specific section at the foot of the
-standards — but the content is generated per stack, and the generated text is
-explicitly labelled a starting point for the project to edit rather than a rule
-it inherits.
 
 ### A model-driven UI preview attached to every pull request
 

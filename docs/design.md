@@ -14,9 +14,17 @@ So the template is built around four claims.
 
 ## 1. Rules live in one place, and the agent is routed to them
 
-`CLAUDE.md` is two lines of imports. `AGENTS.md` states no rules of its own —
-every section says *when* to read something else. The rules themselves are in
-`docs/`.
+`CLAUDE.md` is two lines of imports. `AGENTS.md` is primarily a router: most
+sections say *when* to read something else. It carries only the few
+cross-cutting rules that cannot live in one linked document — the doc-update
+trigger, the status of the gate, and the boundary between the two kinds of
+documentation. Everything else is in `docs/`.
+
+One exception to "one place" is deliberate. A rule that governs behaviour may
+be restated wherever it must be obeyed, even when the same fact has an owning
+document. A reader who misses a link does not follow it, and an agent can
+reconstruct a plausible rule and believe it. Explanatory prose is still
+consolidated; operative rules are allowed to repeat.
 
 This is not tidiness for its own sake. Two forces make it necessary:
 
@@ -61,10 +69,12 @@ with "test with the file unreadable; a list that guards access fails closed."
 A rule you cannot point at in a diff is a preference, and preferences do not
 survive a deadline.
 
-Verification is one command. `make verify` runs the format check, the linter and
-the whole test suite, and CI runs the identical command. A project with three
-near-synonymous test commands will eventually be checked with whichever one
-passes; a project with one cannot be. Targeted tests are documented inside the
+Verification is one command. `make verify` runs the format check, the linter,
+the build and the whole test suite, and CI's `verify` job runs the identical
+command. (CI also has a link-check job, which the gate does not cover — the
+docs say so rather than implying a green gate means a green build.) A project
+with three near-synonymous test commands will eventually be checked with
+whichever one passes; a project with one cannot be. Targeted tests are documented inside the
 subsystem page that owns them rather than becoming build targets, because a
 page explaining *why* a test exists is worth more than a target name.
 
@@ -92,7 +102,7 @@ green test suite every time.
 ## Conventions the template assumes
 
 These are not enforced by the template, but the layout reads better if they
-hold. Both were taken from the project this template was extracted from.
+hold. All three were taken from the project this template was extracted from.
 
 **One concept, several small files, split by aspect.** A base file, then one
 file per facet — `aside.go`, `aside_native.go`, `aside_stage.go`. Small files
@@ -109,13 +119,17 @@ the file an agent reads first and the one where a mistake is most expensive.
 
 ## What is deliberately absent
 
-- **Git, branch, merge and release rules.** Owned by a separate workflow skill;
-  restating them per project would create a copy that drifts.
+- **Branch, merge and release workflow rules.** Owned by a separate workflow
+  skill; restating them per project would create a copy that drifts. The
+  commit-message convention is the exception: it stays in the code standards,
+  because it is also where a reviewer finds the verification evidence the
+  acceptance criteria require.
 - **A community pull-request policy.** These are private projects. Revisit if
   one becomes public — see [`borrowed/magpie.md`](borrowed/magpie.md).
-- **Language-specific rules baked into the template.** They are generated per
-  stack at init, and labelled as a starting point to edit rather than a rule to
-  inherit.
+- **Language-specific code standards.** They are generated per stack at init,
+  and labelled as a starting point to edit rather than a rule to inherit. The
+  shared `.gitignore` and `.editorconfig` do name all three stacks; those are
+  cheap, harmless, and splitting them per stack would buy little.
 
 ## Where each decision came from
 

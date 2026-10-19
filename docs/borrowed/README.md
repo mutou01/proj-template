@@ -11,7 +11,7 @@ months, and gets re-litigated from scratch each time.
 ## The format
 
 One file per source project, named after the project. Each entry has four
-parts and nothing else:
+parts, plus an optional short note after the status where the idea needs one:
 
 ```markdown
 ### <The idea, as a claim>
@@ -42,7 +42,7 @@ is.
 
 | Project | Language | Analysed | Entries |
 | --- | --- | --- | --- |
-| [magpie](magpie.md) | Go | 2026-10-19 | 23 adopted, 2 adapted, 4 rejected |
+| [magpie](magpie.md) | Go | 2026-10-19 | 21 adopted, 4 adapted, 3 rejected |
 
 ## Adding a source
 

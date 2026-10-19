@@ -26,7 +26,7 @@ change to a subsystem is in the [subsystem references](subsystems/README.md).
 | Rule | What a reviewer looks at |
 | --- | --- |
 | A fix comes with a test that fails without it. | Put the old code back and run the test; it must fail, with a real failure that names the behaviour. A compile error or a skipped test does not count. The change says what it failed with. |
-| A test never reaches the network. | Where its requests go. A remote page or API is served from a local fixture, recorded from the real one. A dependency comes from a lock file, not from whatever the registry serves today. |
+| A test never reaches the network. | Where its requests go. A remote page or API is served from a local fixture, recorded from the real one. Dependencies are installed from a lock file where the ecosystem has one; until a lock file is committed, the project says so rather than leaving the gap implicit. |
 | Tests use real inputs. | Whether a test feeds the code what it will actually receive — real payloads, real files, real encoding — or a convenient simplification that hides the bug. |
 | Tests check behaviour, not implementation. | That a test breaks when the behaviour breaks, not when a function is renamed or an internal is reordered. A test named for a guarantee must go red when that guarantee is removed by hand. |
 | A test that fails on the main branch is a bug to fix now. | That a failure is reproduced on a freshly fetched main branch, naming the commit, before it is called pre-existing. A red test is not inherited; it is either fixed or filed, now. |
@@ -112,18 +112,15 @@ the same change when the change alters a documented responsibility, interface,
 state transition, runtime path, compatibility rule or failure behaviour. An
 internal refactor that preserves those contracts needs no prose change.
 
-Keep each fact in one place and link to it. Link to files and named symbols
-rather than copying code that changes often. Explain what a signature cannot:
-what a field means, what its absence means, what must hold before a call.
-
-Document current behaviour separately from proposed changes; the proposal
-belongs in its issue, not in the reference.
+How to write and maintain a reference — what to include, what to leave to the
+signature, and how to keep current behaviour separate from a proposal — is in
+[the subsystem references](subsystems/README.md#add-a-reference).
 
 ## Project conventions
 
-<!-- scripts/init writes the block for this project's stack between the two
-     markers below. Edit it freely afterwards — it is yours now; the markers
-     are only there so the generated text has somewhere to land. -->
+<!-- The block between the two markers below was generated for this project's
+     stack when it was created. Edit it freely — it is yours now; the markers
+     are only there so generated text has somewhere to land. -->
 <!-- stack:begin -->
 <!-- stack:end -->
 

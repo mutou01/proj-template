@@ -7,7 +7,10 @@ NPM           ?= npm
 SETUP_CMD     = $(NPM) install
 BUILD_CMD     = $(NPM) run build
 TEST_CMD      = $(NPM) test
-TEST_ONE_CMD  = $(NPM) test -- -t '$(RUN)'
+# `--test-name-pattern` is the runtime runner's flag, and matches the runner
+# the conventions recommend. A project using Jest or Vitest replaces this line
+# with that runner's name filter.
+TEST_ONE_CMD  = node --test --test-name-pattern '$(RUN)'
 LINT_CMD      = $(NPM) run lint
 FMT_CMD       = $(NPM) run format
 FMT_CHECK_CMD = $(NPM) run format:check

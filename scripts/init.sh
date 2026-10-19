@@ -3,12 +3,15 @@
 # init.sh — create a project from this template.
 #
 #   scripts/init.sh <target-dir> --name <name> [--desc "<one line>"]
-#                                 [--lang go|python|ts|other] [--git] [--force]
+#                   [--lang go|python|ts|other] [--no-conventions] [--git] [--force]
 #
 # Copies template/ into <target-dir> and fills in the project's name,
-# description, stack and date. For a known stack it also writes the stack block
-# into the Makefile, the code standards and the CI workflow, so `make verify`
-# works on the first run.
+# description and stack. For a known stack it also writes the stack block into
+# the Makefile, the code standards and the CI workflow.
+#
+# The verification commands it writes are a contract, not a working build: they
+# are what a real project must be able to run. A fresh project has no code, so
+# the gate is expected to fail until there is something to check.
 #
 # The edits are made with awk rather than `sed -i`, because GNU sed and
 # BSD/macOS sed disagree about what `-i` takes and about whether it wants a
@@ -29,19 +32,20 @@ usage() {
 	cat <<'EOF'
 Usage: scripts/init.sh <target-dir> [options]
 
-  --name <name>     Project name, as it should read in the docs. Defaults to
-                    the target directory's name.
-  --desc "<text>"   One line describing the project.
-  --lang <stack>    go | python | ts | other. Defaults to other, which leaves
-                    the gate failing until you fill it in.
-  --git             Run `git init` in the new project. Nothing is staged or
-                    committed — that is yours to decide.
-  --force           Write into a target directory that is not empty.
-  -h, --help        This text.
+  --name <name>       Project name, as it should read in the docs. Defaults to
+                      the target directory's name.
+  --desc "<text>"     One line describing the project. Optional.
+  --lang <stack>      go | python | ts | other. Defaults to other.
+  --no-conventions    Do not write the stack's language conventions into
+                      docs/code-standards.md. The gate is still written.
+  --git               Run `git init -b main` in the new project. Nothing is
+                      staged or committed.
+  --force             Write into a target directory that is not empty.
+  -h, --help          This text.
 
 Examples:
   scripts/init.sh ../my-service --name my-service --desc "Does the thing" --lang go --git
-  scripts/init.sh ./scratch --name scratch --lang python
+  scripts/init.sh ./scratch --name scratch --lang python --no-conventions
 EOF
 }
 
@@ -50,6 +54,7 @@ target=''
 name=''
 desc=''
 lang='other'
+conventions=1
 do_git=0
 force=0
 
@@ -75,6 +80,10 @@ while [ $# -gt 0 ]; do
 		take_value $# --lang
 		lang=$2
 		shift 2
+		;;
+	--no-conventions)
+		conventions=0
+		shift
 		;;
 	--git)
 		do_git=1
@@ -112,6 +121,13 @@ esac
 [ -d "$template" ] || die "no template directory at $template"
 [ -d "$stacks/$lang" ] || die "no stack definition at $stacks/$lang"
 
+if [ "$conventions" -eq 1 ]; then
+	conventions_src="$stacks/$lang/conventions.md"
+else
+	conventions_src="$here/no-conventions.md"
+fi
+[ -f "$conventions_src" ] || die "no conventions file at $conventions_src"
+
 # --- target directory --------------------------------------------------------
 mkdir -p -- "$target"
 target=$(CDPATH= cd -- "$target" && pwd)
@@ -142,48 +158,88 @@ ts) lang_label='TypeScript / Node' ;;
 other) lang_label='Other' ;;
 esac
 
-today=$(date +%Y-%m-%d)
+# The separator travels with the description, so an omitted --desc leaves no
+# dangling dash behind. The em dash is kept out of the awk program below and
+# passed in as a value, so the script's encoding never reaches awk's parser.
+if [ -n "$desc" ]; then
+	desc_suffix=" — $desc"
+else
+	desc_suffix=''
+fi
+
 guard=$(tr -d ' \t\r\n' <"$stacks/$lang/guard")
 [ -n "$guard" ] || die "$stacks/$lang/guard is empty"
-
-# `&` and `\` are special in an awk replacement, so a project name containing
-# either would corrupt the file instead of appearing in it.
-escape_awk() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/&/\\&/g'; }
-
-name_esc=$(escape_awk "$name")
-slug_esc=$(escape_awk "$slug")
-desc_esc=$(escape_awk "$desc")
-lang_esc=$(escape_awk "$lang_label")
-today_esc=$(escape_awk "$today")
-guard_esc=$(escape_awk "$guard")
 
 # --- copy --------------------------------------------------------------------
 cp -R -- "$template/." "$target/"
 
 # --- substitute the placeholders ---------------------------------------------
-# Only the files the template ships. A file added to template/ later is picked
-# up without editing this script.
-find "$target" -type f -not -path '*/.git/*' -print | while IFS= read -r file; do
-	awk -v name="$name_esc" -v slug="$slug_esc" -v desc="$desc_esc" \
-		-v lang="$lang_esc" -v date="$today_esc" -v guard="$guard_esc" '
+# Only the files the template ships, found by walking the template rather than
+# the target. With --force the target may already hold a user's own files, and
+# rewriting those — or re-encoding a user's binary because it happened to
+# contain the bytes `{{PROJECT_NAME}}` — is not this script's business.
+#
+# The replacement is a literal substring swap, not `gsub`. In a gsub
+# replacement, `&` means "the matched text", so a project called `A & B` would
+# come out as `A {{PROJECT_NAME}} B`, with the script exiting 0.
+find "$template" -type f -print | while IFS= read -r src; do
+	rel=${src#"$template"/}
+	file="$target/$rel"
+	[ -f "$file" ] || continue
+	# Values arrive through the environment, not `awk -v`: `-v` processes
+	# backslash escapes, so a description containing `\w` would lose the
+	# backslash. ENVIRON hands awk the bytes unchanged.
+	INIT_NAME="$name" INIT_SLUG="$slug" INIT_DESC_SUFFIX="$desc_suffix" \
+		INIT_LANG="$lang_label" INIT_GUARD="$guard" \
+		awk '
+		BEGIN {
+			name = ENVIRON["INIT_NAME"]
+			slug = ENVIRON["INIT_SLUG"]
+			desc_suffix = ENVIRON["INIT_DESC_SUFFIX"]
+			lang = ENVIRON["INIT_LANG"]
+			guard = ENVIRON["INIT_GUARD"]
+		}
+		function replace_all(text, needle, repl,    out, i) {
+			out = ""
+			while ((i = index(text, needle)) > 0) {
+				out = out substr(text, 1, i - 1) repl
+				text = substr(text, i + length(needle))
+			}
+			return out text
+		}
 		{
-			gsub(/\{\{PROJECT_NAME\}\}/, name)
-			gsub(/\{\{PROJECT_SLUG\}\}/, slug)
-			gsub(/\{\{PROJECT_DESCRIPTION\}\}/, desc)
-			gsub(/\{\{LANG\}\}/, lang)
-			gsub(/\{\{DATE\}\}/, date)
-			gsub(/\{\{GUARD_FILE\}\}/, guard)
-			print
+			line = $0
+			line = replace_all(line, "{{PROJECT_NAME}}", name)
+			line = replace_all(line, "{{PROJECT_SLUG}}", slug)
+			line = replace_all(line, "{{PROJECT_DESCRIPTION_SUFFIX}}", desc_suffix)
+			line = replace_all(line, "{{LANG}}", lang)
+			line = replace_all(line, "{{GUARD_FILE}}", guard)
+			print line
 		}
 	' "$file" >"$file.init-tmp" && mv -- "$file.init-tmp" "$file"
 done
 
 # --- splice in the stack's blocks --------------------------------------------
 # Replaces the lines strictly between two marker lines with the contents of a
-# file, so the generated text lands where the template left room for it and the
-# script stays idempotent if it is ever run twice.
+# file, so the generated text lands where the template left room for it.
+#
+# Both markers must be present. Without this check, a missing end marker would
+# silently delete everything after the begin marker — and `--force` exists, so
+# that could happen to a project someone has already edited.
 splice() {
-	awk -v begin="$2" -v end="$3" -v src="$4" '
+	if ! grep -qxF -- "$2" "$1"; then
+		die "$1 has no '$2' marker"
+	fi
+	if ! grep -qxF -- "$3" "$1"; then
+		die "$1 has no '$3' marker"
+	fi
+	INIT_BEGIN="$2" INIT_END="$3" INIT_SRC="$4" \
+		awk '
+		BEGIN {
+			begin = ENVIRON["INIT_BEGIN"]
+			end = ENVIRON["INIT_END"]
+			src = ENVIRON["INIT_SRC"]
+		}
 		$0 == begin {
 			print
 			while ((getline line < src) > 0) print line
@@ -199,14 +255,16 @@ splice() {
 splice "$target/Makefile" \
 	'# === STACK ===' '# === END STACK ===' "$stacks/$lang/makefile-block.mk"
 splice "$target/docs/code-standards.md" \
-	'<!-- stack:begin -->' '<!-- stack:end -->' "$stacks/$lang/conventions.md"
+	'<!-- stack:begin -->' '<!-- stack:end -->' "$conventions_src"
 splice "$target/.github/workflows/verify.yml" \
 	'      # === toolchain ===' '      # === end toolchain ===' "$stacks/$lang/workflow-setup.yml"
 
 # --- git ---------------------------------------------------------------------
+# `-b main` because the generated workflow triggers on `main`; a default
+# `master` would leave the project's first push without a CI run.
 if [ "$do_git" -eq 1 ]; then
 	if command -v git >/dev/null 2>&1; then
-		git -C "$target" init --quiet
+		git -C "$target" init --quiet -b main
 	else
 		printf 'init: git is not on PATH; skipping git init\n' >&2
 	fi
@@ -222,6 +280,9 @@ cat <<EOF
     2. read AGENTS.md - it is the one file that says how work happens here
     3. fill in the "This project" section at the foot of AGENTS.md
     4. make setup && make verify
+
+  Step 4 is the contract the project has to meet. It fails on a project with
+  no code yet, and that is expected: there is nothing to verify.
 
 EOF
 

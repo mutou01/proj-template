@@ -1,8 +1,12 @@
 # Notes for coding agents
 
-This file is the single source of truth for how to work in this repository.
-Other tools' agent files import it — `CLAUDE.md` here, and whatever your tool
-reads. Edit this file, not those.
+This file is the entry point for how to work in this repository. Other tools'
+agent files import it — `CLAUDE.md` here, and whatever your tool reads. Edit
+this file, not those.
+
+("Source of truth" is used elsewhere in these docs for a narrower thing: the
+file, table or setting that decides a subsystem's behaviour. This file is not
+that; it is a router.)
 
 Keep it short. It is a router: each section says *when* to read something, not
 what the something says. A rule that belongs in a linked document and is copied
@@ -29,9 +33,13 @@ contracts needs no prose change.
 
 ## Verification
 
-`make verify` is the gate. It runs the format check, the linter and the whole
-test suite. CI runs the same command, so a green `verify` locally means a green
-CI.
+`make verify` is the gate. It runs the format check, the linter, the build and
+the whole test suite. CI's `verify` job runs the same command, so the code
+checks are identical.
+
+CI also has a separate `docs` job that checks local links. `make verify` does
+not run it, so a green local gate does not guarantee a green CI — follow the
+links in your change, or let CI tell you.
 
 Nothing else is a gate. A command that is not part of `verify` is a
 convenience, not evidence.
@@ -48,11 +56,12 @@ either wrong. Fix it in the same change.
 
 ## This project
 
-<!-- Filled in by scripts/init. Keep this section short: what this is, where the
-     entry point is, and which subsystems exist. It is the only part of this
-     file that is about this project rather than about working here. -->
+<!-- Filled in when this project was created. Keep this section short: what
+     this is, where the entry point is, and which subsystems exist. It is the
+     only part of this file that is about this project rather than about
+     working here. -->
 
-- **{{PROJECT_NAME}}** — {{PROJECT_DESCRIPTION}}
+- **{{PROJECT_NAME}}**{{PROJECT_DESCRIPTION_SUFFIX}}
 - Stack: {{LANG}}
 - Entry point: <!-- e.g. `cmd/{{PROJECT_SLUG}}/main.go`, `src/index.ts` -->
 - Build output: <!-- where build and package put their artifacts -->

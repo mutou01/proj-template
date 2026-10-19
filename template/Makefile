@@ -14,9 +14,10 @@
 # them, so running from somewhere else (`make -f path/to/Makefile`) would act
 # on the wrong tree. `make -C path/to/project` works.
 #
-# The guard is a file that only exists in a real project of this kind, which is
-# also why a freshly created project has to be given one before `make verify`
-# will run: that is the guard doing its job, not a bug.
+# The guard looks for a file that a real project of this kind has. It is
+# advisory, not proof of ownership: another project of the same stack passes it
+# too. Its job is to fail loudly before a recipe touches the wrong tree, not to
+# authenticate the directory.
 ifeq ($(wildcard {{GUARD_FILE}}),)
   $(error no {{GUARD_FILE}} in $(CURDIR) - run make in the project's folder \
 	(make -C path/to/{{PROJECT_SLUG}}). If this IS the project folder, it has \
@@ -27,18 +28,20 @@ endif
 #   make test-one RUN='name of the test'
 RUN =
 
+# Every gate below delegates to the commands between the STACK markers, so
+# changing language, formatter or test runner means editing that block and
+# nothing else. The commands were written for the stack this project was
+# created with, and they are yours now. They describe what a real project must
+# be able to run; a project with no code yet will fail them, and that is
+# expected.
 # === STACK ===
-# Every gate below delegates to these commands, so changing language, formatter
-# or test runner means editing this block and nothing else. scripts/init wrote
-# the ones for the stack this project was created with; they are yours now.
 # === END STACK ===
 
 .PHONY: help setup build test test-one lint fmt fmt-check verify clean
 
 help: ## List the targets.
-	@echo "make verify     the gate: fmt-check, lint and the whole test suite"
-	@echo "make test-one   one test: make test-one RUN='name of the test'"
-	@echo "make setup      install what build, lint and test need"
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
 
 setup: ## Install what build, lint and test need.
 	$(SETUP_CMD)
@@ -61,7 +64,7 @@ fmt: ## Format in place.
 fmt-check: ## Fail if anything is not formatted.
 	$(FMT_CHECK_CMD)
 
-verify: fmt-check lint test ## The gate: everything a change must pass.
+verify: fmt-check lint build test ## The gate: everything a change must pass.
 	@echo "verify: ok"
 
 clean: ## Remove build output.

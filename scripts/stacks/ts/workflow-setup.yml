@@ -1,4 +1,7 @@
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          # No `cache: npm`. It requires a lock file, and a project generated a
+          # minute ago has none — setup-node fails before `make setup` runs.
+          # Turn it on in the same change that commits a lock file; caching an
+          # install whose dependency versions are not pinned is not worth it.

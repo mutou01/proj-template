@@ -27,10 +27,12 @@ soon as there is code to check.
 | Option | |
 | --- | --- |
 | `--name <name>` | Project name as it should read in the docs. Defaults to the target directory's name. |
-| `--desc "<text>"` | One line describing the project. |
+| `--desc "<text>"` | One line describing the project. Optional; omitted, the line is left off rather than left dangling. |
 | `--lang <stack>` | `go`, `python`, `ts` or `other`. Defaults to `other`. |
-| `--git` | Run `git init`. Nothing is staged or committed. |
+| `--no-conventions` | Do not write the stack's language conventions into `docs/code-standards.md`. The gate is still written. |
+| `--git` | Run `git init -b main`. Nothing is staged or committed. |
 | `--force` | Write into a target directory that is not empty. |
+| `-h`, `--help` | Print the usage text. |
 
 Neither script will write into a non-empty directory without `--force`.
 
@@ -52,16 +54,19 @@ block, which is a five-minute job and is the first thing the generated
 ## What you get
 
 ```
-AGENTS.md                      the single source of truth: a router, not a rulebook
+AGENTS.md                      the entry point: a router, not a rulebook
 CLAUDE.md                      two lines: @AGENTS.md, @LESSONS.md
 LESSONS.md                     what recent work got wrong, and the rule that catches it
 Makefile                       one canonical gate: make verify
+.editorconfig                  editor settings that travel with the repository
+.gitattributes                 LF in the working tree, on every platform
+.gitignore                     build output and local overrides
 docs/
   code-standards.md            the rules a reviewer checks, plus the definition of done
   reference.md                 the manual for people who use the project
   subsystems/README.md         how to write and maintain a subsystem reference
   subsystems/_template.md      the skeleton to copy
-.github/workflows/verify.yml   CI runs the same command you do
+.github/workflows/verify.yml   CI runs the same gate you do, plus a link check
 ```
 
 Read [`docs/design.md`](docs/design.md) for why it is shaped this way. Read
@@ -77,8 +82,9 @@ including the ones that were considered and rejected.
   `cmd.exe` does not understand the quoting in them.
 - **`git`** — only for `--git`, and optional.
 
-`init.sh` itself needs only `sh`, `awk`, `sed`, `find` and `cp` — no `bash`
-extensions, no GNU-only flags.
+`init.sh` is POSIX `sh`: no `bash` extensions, no GNU-only flags. It uses the
+usual utilities — `awk`, `sed`, `find`, `cp`, `tr`, `mkdir`, `mv`, `basename`,
+`dirname` — plus `git` only when `--git` is passed.
 
 ## Layout
 
@@ -110,8 +116,11 @@ CI workflow is a GitHub Actions expression and is meant to be there.
 ## Adding a stack
 
 1. `mkdir scripts/stacks/<name>`
-2. Add `guard` (one line: the file that only exists in a real project of this
-   kind), `makefile-block.mk`, `conventions.md` and `workflow-setup.yml` —
-   copy an existing stack and edit.
-3. Add `<name>` to the `case` lists in `init.sh` and `init.ps1`, and to the
-   `--lang` validation in both.
+2. Add `guard` (one line: the file a real project of this kind has),
+   `makefile-block.mk`, `conventions.md` and `workflow-setup.yml` — copy an
+   existing stack and edit.
+3. Add `<name>` to the `--lang` validation and the label mapping in **both**
+   scripts. They are written differently — a `case` in `init.sh`, a `switch` /
+   `-notin` in `init.ps1` — so grep for `other` in each.
+4. Add it to the `template-check` matrix (`.github/workflows/template-check.yml`)
+   and to the stack table above.

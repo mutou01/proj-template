@@ -20,14 +20,17 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # `matrix.os`, not a hardcoded runner: adding a platform to the matrix must
+    # actually add a job, or the matrix is decoration.
+    runs-on: ${{ matrix.os }}
     # Report every matrix entry's result rather than stopping at the first
     # failure — one broken platform should not hide another.
     strategy:
       fail-fast: false
       # Add the other platforms the project ships on, and the toolchain step
       # for each. A change that passes on one OS and fails on another is
-      # exactly what a matrix is for.
+      # exactly what a matrix is for. Remember that the recipes need `make`,
+      # which Windows runners do not have by default.
       matrix:
         os: [ubuntu-latest]
     steps:
