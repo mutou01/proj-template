@@ -1,0 +1,6 @@
+      - uses: actions/setup-go@v5
+        with:
+          # Read the version from go.mod rather than naming it here, so the
+          # toolchain CI uses and the one the project declares cannot drift.
+          go-version-file: go.mod
+          cache: true

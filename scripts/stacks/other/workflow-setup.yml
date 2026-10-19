@@ -1,0 +1,2 @@
+      # Add the step that installs this project's toolchain, before the
+      # `make setup` step below.
