@@ -1,0 +1,57 @@
+name: verify
+
+# CI runs the same command a developer runs: `make verify`. If the two ever
+# diverge, a green local run stops meaning anything, and the divergence is
+# discovered by whoever is least able to debug it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a pull request makes the previous run's answer irrelevant, so
+# cancel it. Never cancel a run on main: that answer is the one a release or a
+# deploy waits for.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # Report every matrix entry's result rather than stopping at the first
+    # failure — one broken platform should not hide another.
+    strategy:
+      fail-fast: false
+      # Add the other platforms the project ships on, and the toolchain step
+      # for each. A change that passes on one OS and fails on another is
+      # exactly what a matrix is for.
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      # === toolchain ===
+      # === end toolchain ===
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Verify
+        run: make verify
+
+  # Local links only: a relative path or an anchor that no longer resolves is a
+  # broken document, and it is cheap to catch. External links are deliberately
+  # not checked — they fail for reasons the project does not control, and a
+  # check that goes red on someone else's outage gets muted, then ignored.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that links in the docs resolve
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress --include-fragments './**/*.md'
+          fail: true

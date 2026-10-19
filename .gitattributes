@@ -1,0 +1,20 @@
+# Every text file checks out with LF, whatever core.autocrlf says.
+#
+# This repository needs this more than most, and for a less obvious reason than
+# the usual one. `scripts/init.sh` copies `template/` into a new project
+# *verbatim* — it copies bytes, not git objects. So a Windows checkout with
+# autocrlf on gives every file under `template/` CRLF in the working tree, and
+# the copy carries that CRLF into every project generated from it.
+#
+# `template/.gitattributes` does not save you: it travels with the generated
+# project and fixes the line endings at that project's next commit, not on
+# disk when it is created.
+#
+# CI does not catch it either. The template's own checks run on Linux, where
+# the checkout is LF regardless of what a Windows contributor sees.
+#
+# So pin it here, at the root, where it applies to the working tree itself.
+* text=auto eol=lf
+
+# No binaries in this repository today. If one arrives, mark it `binary` here
+# rather than loosening the rule above for everyone.
